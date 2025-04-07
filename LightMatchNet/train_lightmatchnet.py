@@ -21,6 +21,8 @@ if __name__ == "__main__":
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     SAVE_PATH = "lightmatchnet_checkpoint.pt"
 
+    print("Using device:", DEVICE)
+
     # === Transforms ===
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
