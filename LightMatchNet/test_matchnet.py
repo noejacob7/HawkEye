@@ -75,9 +75,16 @@ def main(args):
     sims = F.cosine_similarity(query_emb.unsqueeze(0), gallery_embs)
     topk = torch.topk(sims, k=args.topk)
 
-    print("\nTop Matches:")
+    query_filename = os.path.basename(args.query)
+    print(f"\n[🔍] Query Image: {query_filename}")
+    print(f"\nTop {args.topk} Similar Matches:\n" + "-"*50)
+
     for i, idx in enumerate(topk.indices):
-        print(f"{i+1}. {gallery_paths[idx]} (Score: {sims[idx].item():.3f})")
+        match_path = gallery_paths[idx]
+        match_filename = os.path.basename(match_path)
+        similarity = sims[idx].item()
+        print(f"{i+1:>2}. {match_filename:30} | Similarity: {similarity:.4f}")
+
 
     if args.visualize:
         plt.figure(figsize=(15, 3))
