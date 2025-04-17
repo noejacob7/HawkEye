@@ -11,7 +11,7 @@ from coarse_filter_dataset import CoarseFilterDataset
 # === Config ===
 DATASET_DIR = "lightmatch_data"
 BATCH_SIZE = 64
-EPOCHS = 50
+EPOCHS = 20
 LR = 1e-3
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
