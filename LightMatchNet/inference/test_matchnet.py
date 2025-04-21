@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 # === Model Loader ===
 def load_model(model_name, checkpoint_path, device):
     if model_name == "lightmatchnet":
-        from lightmatchnet_model import LightMatchNet
+        from models.lightmatchnet_model import LightMatchNet
         model = LightMatchNet()
     elif model_name == "efficientnet":
-        from efficientnet_matchnet import EfficientNetMatchNet
+        from models.efficientnet_matchnet import EfficientNetMatchNet
         model = EfficientNetMatchNet()
     else:
         raise ValueError(f"Unknown model: {model_name}")
