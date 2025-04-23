@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # === Model Loader ===
 def load_model(model_name, checkpoint_path, device):
     if model_name == "lightmatchnet":
-        from models.lightmatchnet_model import LightMatchNet
+        from LightMatchNet.models.mobilenetv3_small import LightMatchNet
         model = LightMatchNet()
     elif model_name == "efficientnet":
         from models.efficientnet_matchnet import EfficientNetMatchNet

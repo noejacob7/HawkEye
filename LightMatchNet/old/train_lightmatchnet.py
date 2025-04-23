@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from models.lightmatchnet_model import LightMatchNet
+from LightMatchNet.models.mobilenetv3_small import LightMatchNet
 from LightMatchNet.datasets.triplet_dataset import TripletDataset
 from LightMatchNet.datasets.triplet_miner import batch_hard_triplet_loss  # We'll define this below
 

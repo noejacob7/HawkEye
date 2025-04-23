@@ -8,46 +8,44 @@ from tqdm import tqdm
 import os
 import csv
 
-# === Dynamic imports ===
-def get_model(name):
-    if name == "lightmatchnet":
-        from models.lightmatchnet_model import LightMatchNet
-        return LightMatchNet()
-    elif name == "efficientnet":
-        from models.efficientnet_matchnet import EfficientNetMatchNet
-        return EfficientNetMatchNet()
-    # elif name == "ghost":
-    #     from models.ghostnet_matchnet import GhostMatchNet
-    #     return GhostMatchNet()
-    # elif name == "siamese":
-    #     from models.siamese_model import SiameseNet
-    #     return SiameseNet()
+# === Model loader ===
+def get_model(name, view_mode, embedding_dim=128):
+    if view_mode == "multi":
+        from models.multiview_matchnet import MultiViewMatchNet
+        return MultiViewMatchNet(backbone=name, embedding_dim=embedding_dim)
     else:
-        raise ValueError(f"Unknown model: {name}")
+        if name == "mobilenet":
+            from models.mobilenetv3_small import MobileNetMatchNet
+            return MobileNetMatchNet(embedding_dim=embedding_dim)
+        elif name == "efficientnet":
+            from models.efficientnet_matchnet import EfficientNetMatchNet
+            return EfficientNetMatchNet(embedding_dim=embedding_dim)
+        else:
+            raise ValueError(f"Unknown model: {name}")
 
-def get_dataset(method, root_dir, transform):
-    if method == "triplet":
-        from datasets.triplet_dataset import TripletDataset
-        return TripletDataset(root_dir, transform=transform)
-    # elif method == "siamese":
-    #     from datasets.siamese_dataset import SiameseDataset
-    #     return SiameseDataset(root_dir, transform=transform)
+# === Dataset loader ===
+def get_dataset(method, root_dir, transform, view_mode):
+    if view_mode == "multi":
+        from datasets.multiview_dataset import MultiViewDataset
+        return MultiViewDataset(root_dir, transform=transform, view_suffix="_01")
     else:
-        raise ValueError(f"Unknown method: {method}")
+        if method == "triplet":
+            from datasets.triplet_dataset import TripletDataset
+            return TripletDataset(root_dir, transform=transform)
+        else:
+            raise ValueError(f"Unsupported method {method} for single-view mode")
 
+# === Loss loader ===
 def get_loss_fn(method):
     if method == "triplet":
         return nn.TripletMarginLoss(margin=0.2)
     elif method == "siamese":
         return nn.BCELoss()
-    # elif method == "contrastive":
-    #     from models.losses import contrastive_loss
-    #     return contrastive_loss
     else:
         raise ValueError(f"Unknown loss function: {method}")
 
 # === Training loop ===
-def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=None, save_path=None):
+def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=None, save_path=None, log_path="train_log.csv"):
     model.to(device)
 
     if torch.cuda.device_count() > 1:
@@ -58,9 +56,9 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=Non
         print(f"[INFO] Resuming from checkpoint: {resume_path}")
         model.load_state_dict(torch.load(resume_path, map_location=device))
 
-    log_file = open("train_log.csv", mode="a", newline="")
+    log_file = open(log_path, mode="a", newline="")
     log_writer = csv.writer(log_file)
-    if os.stat("train_log.csv").st_size == 0:
+    if os.stat(log_path).st_size == 0:
         log_writer.writerow(["epoch", "batch_loss", "avg_epoch_loss"])
 
     for epoch in range(epochs):
@@ -72,16 +70,17 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=Non
             optimizer.zero_grad()
 
             if isinstance(loss_fn, nn.TripletMarginLoss):
-                anchor, positive, negative = [x.to(device) for x in batch]
-                out_a = model(anchor)
-                out_p = model(positive)
-                out_n = model(negative)
-                loss = loss_fn(out_a, out_p, out_n)
-
-            elif isinstance(loss_fn, nn.BCELoss):
-                img1, img2, label = [x.to(device) for x in batch]
-                output = model(img1, img2)
-                loss = loss_fn(output, label.unsqueeze(1).float())
+                if isinstance(batch[0], list):  # Multi-view input
+                    anchor_views, pos_views, neg_views = batch
+                    anchor = model(anchor_views)
+                    positive = model(pos_views)
+                    negative = model(neg_views)
+                else:  # Single-view input
+                    anchor, positive, negative = [x.to(device) for x in batch]
+                    anchor = model(anchor)
+                    positive = model(positive)
+                    negative = model(negative)
+                loss = loss_fn(anchor, positive, negative)
 
             else:
                 raise NotImplementedError("Unsupported loss function")
@@ -101,34 +100,40 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=Non
         torch.save(model.state_dict(), save_path)
         print(f"[✓] Model saved to {save_path}")
 
-# === CLI interface ===
+# === CLI ===
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, help="Model name: lightmatchnet, efficientnet, ghost, siamese")
-    parser.add_argument("--method", type=str, required=True, choices=["triplet", "siamese", "contrastive"])
-    parser.add_argument("--data", type=str, required=True, help="Path to dataset folder")
-    parser.add_argument("--epochs", type=int, default=20)
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--save", type=str, default="trained_model.pt", help="Checkpoint path to save")
-    parser.add_argument("--resume", type=str, default=None, help="Resume training from this .pt checkpoint")
+    parser.add_argument("--model", type=str, required=True, help="Backbone: mobilenet or efficientnet")
+    parser.add_argument("--method", type=str, required=True, choices=["triplet"], help="Training method")
+    parser.add_argument("--data", type=str, required=True, help="Path to dataset")
+    parser.add_argument("--view_mode", type=str, choices=["single", "multi"], default="single", help="single or multi-view input")
+    parser.add_argument("--embedding_dim", type=int, default=128, help="Size of embedding vector")
+    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--save", type=str, default="trained_model.pt", help="Path to save model")
+    parser.add_argument("--resume", type=str, default=None, help="Path to resume training checkpoint")
+    parser.add_argument("--log", type=str, default="train_log.csv", help="Path to CSV log file")
 
     args = parser.parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((256, 256)),
+        transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.05),
+        transforms.RandomPerspective(distortion_scale=0.2, p=0.5),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406],
                              [0.229, 0.224, 0.225])
     ])
 
-    model = get_model(args.model)
-    dataset = get_dataset(args.method, args.data, transform)
+    model = get_model(args.model, args.view_mode, embedding_dim=args.embedding_dim)
+    dataset = get_dataset(args.method, args.data, transform, args.view_mode)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
 
     loss_fn = get_loss_fn(args.method)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     train(model, dataloader, loss_fn, optimizer, device, args.epochs,
-          resume_path=args.resume, save_path=args.save)
+          resume_path=args.resume, save_path=args.save, log_path=args.log)

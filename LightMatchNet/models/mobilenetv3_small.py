@@ -4,9 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import mobilenet_v3_small
 
-class LightMatchNet(nn.Module):
+class MobileNetMatchNet(nn.Module):
     def __init__(self, embedding_dim=128, pretrained=True):
-        super(LightMatchNet, self).__init__()
+        super(MobileNetMatchNet, self).__init__()
 
         base = mobilenet_v3_small(pretrained=pretrained)
         self.backbone = base.features  # Output: (B, 576, H/32, W/32)
