@@ -5,8 +5,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
-import os
+import os, sys
 import csv
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # === Model loader ===
 def get_model(name, view_mode, embedding_dim=128):
