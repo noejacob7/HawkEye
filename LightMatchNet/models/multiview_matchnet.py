@@ -8,9 +8,9 @@ class MultiViewMatchNet(nn.Module):
         if backbone == "efficientnet":
             from models.efficientnet_matchnet import EfficientNetMatchNet
             self.encoder = EfficientNetMatchNet(embedding_dim=embedding_dim)
-        elif backbone == "mobilenetv3":
-            from models.mobilenetv3_small import MobileNetV3Small
-            self.encoder = MobileNetV3Small(embedding_dim=embedding_dim)
+        elif backbone == "mobilenet":
+            from models.mobilenetv3_small import MobileNetMatchNet
+            self.encoder = MobileNetMatchNet(embedding_dim=embedding_dim)
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 
