@@ -21,3 +21,13 @@ python training/train.py --model MODEL --method METHOD --data DATA_DIR [OPTIONS]
 | `--lr`       | Learning rate                                       | 1e-4                |
 | `--save`     | Save model to path                                  | `trained_model.pt`  |
 | `--resume`   | Resume from existing checkpoint                     | None                |
+
+```bash
+python3 training/train.py \
+  --model mobilenet \
+  --method triplet \
+  --data data/hot_wheels \
+  --view_mode multi \
+  --resume checkpoints/mobilenet_latest.pt \
+  --save checkpoints/mobilenet_final.pt
+```
