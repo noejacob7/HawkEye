@@ -28,6 +28,6 @@ python3 training/train.py \
   --method triplet \
   --data data/hot_wheels \
   --view_mode multi \
-  --resume checkpoints/mobilenet_latest.pt \
-  --save checkpoints/mobilenet_final.pt
+  --resume checkpoints/mobilenet_v3_small_tm_sd.pt \
+  --save checkpoints/mobilenet_mutliview_v1.pt
 ```
