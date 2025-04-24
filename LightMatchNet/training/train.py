@@ -28,8 +28,8 @@ def get_model(name, view_mode, embedding_dim=128):
 # === Dataset loader ===
 def get_dataset(method, root_dir, transform, view_mode):
     if view_mode == "multi":
-        from datasets.multiview_dataset import MultiViewDataset
-        return MultiViewDataset(root_dir, transform=transform, view_suffix="_01")
+        from datasets.triplet_multiview_dataset import TripletMultiViewDataset
+        return TripletMultiViewDataset(root_dir, transform=transform, view_suffix="_01")
     else:
         if method == "triplet":
             from datasets.triplet_dataset import TripletDataset
@@ -74,14 +74,18 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=Non
             if isinstance(loss_fn, nn.TripletMarginLoss):
                 if isinstance(batch[0], list):  # Multi-view input
                     anchor_views, pos_views, neg_views = batch
-                    anchor = model(anchor_views)
-                    positive = model(pos_views)
-                    negative = model(neg_views)
+
+                    # Move each view list to device
+                    anchor = model([img.to(device) for img in anchor_views])
+                    positive = model([img.to(device) for img in pos_views])
+                    negative = model([img.to(device) for img in neg_views])
+
                 else:  # Single-view input
                     anchor, positive, negative = [x.to(device) for x in batch]
                     anchor = model(anchor)
                     positive = model(positive)
                     negative = model(negative)
+
                 loss = loss_fn(anchor, positive, negative)
 
             else:
