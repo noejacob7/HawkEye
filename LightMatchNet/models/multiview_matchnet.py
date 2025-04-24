@@ -18,11 +18,20 @@ class MultiViewMatchNet(nn.Module):
 
     def forward(self, list_of_images):
         """
-        list_of_images: list of tensors (B, 3, H, W)
-        Each item is a view of the same object
-        Returns: fused embedding vector (1, embedding_dim)
+        list_of_images: list of tensors, each with shape (3, H, W)
+        Returns: fused embedding tensor with shape (1, embedding_dim)
         """
-        embeddings = [self.encoder(img.unsqueeze(0)) for img in list_of_images]
-        embeddings = torch.cat(embeddings, dim=0)  # (N_views, embed_dim)
-        fused_embedding = self.pool(embeddings)  # (embed_dim,)
-        return fused_embedding.unsqueeze(0)
+        device = next(self.parameters()).device  # Get correct device even in DataParallel
+        embeddings = []
+
+        for img in list_of_images:
+            if img.ndim == 3:
+                img = img.unsqueeze(0)  # Make it (1, 3, H, W)
+            img = img.to(device)
+            emb = self.encoder(img)  # shape: (1, embed_dim)
+            embeddings.append(emb.squeeze(0))  # shape: (embed_dim,)
+
+        stacked = torch.stack(embeddings, dim=0)  # shape: (N_views, embed_dim)
+        fused = self.pool(stacked)                # shape: (embed_dim,)
+        return fused.unsqueeze(0)                 # shape: (1, embed_dim)
+
