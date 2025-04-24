@@ -4,7 +4,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 class TripletMultiViewDataset(Dataset):
-    def __init__(self, root_dir, transform=None, anchor_mode="multi", view_suffix_train="_01", view_suffix_anchor="_02"):
+    def __init__(self, root_dir, transform=None, anchor_mode="single", view_suffix_train="_01", view_suffix_anchor="_02"):
         """
         root_dir: folder with subfolders (id_001, id_002, ...)
         transform: torchvision transform pipeline

@@ -5,59 +5,45 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
-import os, sys
+import os
+import sys
 import csv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# === Model loader ===
 def get_model(name, view_mode, embedding_dim=128):
     if view_mode == "multi":
         from models.multiview_matchnet import MultiViewMatchNet
         return MultiViewMatchNet(backbone=name, embedding_dim=embedding_dim)
     else:
-        if name == "mobilenet":
-            from models.mobilenetv3_small import MobileNetMatchNet
-            return MobileNetMatchNet(embedding_dim=embedding_dim)
-        elif name == "efficientnet":
-            from models.efficientnet_matchnet import EfficientNetMatchNet
-            return EfficientNetMatchNet(embedding_dim=embedding_dim)
-        else:
-            raise ValueError(f"Unknown model: {name}")
+        raise NotImplementedError("Only multi-view supported currently.")
 
-# === Dataset loader ===
-def get_dataset(method, root_dir, transform, view_mode):
+def get_dataset(method, root_dir, transform, view_mode, anchor_mode):
     if view_mode == "multi":
         from datasets.triplet_multiview_dataset import TripletMultiViewDataset
-        return TripletMultiViewDataset(root_dir, transform=transform, view_suffix="_01")
+        return TripletMultiViewDataset(root_dir, transform=transform, anchor_mode=anchor_mode)
     else:
-        if method == "triplet":
-            from datasets.triplet_dataset import TripletDataset
-            return TripletDataset(root_dir, transform=transform)
-        else:
-            raise ValueError(f"Unsupported method {method} for single-view mode")
+        raise NotImplementedError("Only multi-view supported currently.")
 
-# === Loss loader ===
 def get_loss_fn(method):
     if method == "triplet":
         return nn.TripletMarginLoss(margin=0.2)
-    elif method == "siamese":
-        return nn.BCELoss()
     else:
         raise ValueError(f"Unknown loss function: {method}")
 
-# === Training loop ===
-def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=None, save_path=None, log_path="train_log.csv"):
+def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=None, save_path=None, log_path="train_log.csv", patience=5):
     model.to(device)
 
     if torch.cuda.device_count() > 1 and not args.no_parallel:
         print(f"[INFO] Using {torch.cuda.device_count()} GPUs via DataParallel")
         model = nn.DataParallel(model)
 
-
     if resume_path:
         print(f"[INFO] Resuming from checkpoint: {resume_path}")
         model.load_state_dict(torch.load(resume_path, map_location=device))
+
+    best_loss = float('inf')
+    patience_counter = 0
 
     log_file = open(log_path, mode="a", newline="")
     log_writer = csv.writer(log_file)
@@ -72,26 +58,20 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=Non
         for batch in pbar:
             optimizer.zero_grad()
 
-            if isinstance(loss_fn, nn.TripletMarginLoss):
-                if isinstance(batch[0], list):  # Multi-view input
-                    anchor_views, pos_views, neg_views = batch
-
-                    # Move each view list to device
-                    anchor = model([img.to(device) for img in anchor_views])
-                    positive = model([img.to(device) for img in pos_views])
-                    negative = model([img.to(device) for img in neg_views])
-
-                else:  # Single-view input
-                    anchor, positive, negative = [x.to(device) for x in batch]
-                    anchor = model(anchor)
-                    positive = model(positive)
-                    negative = model(negative)
-
-                loss = loss_fn(anchor, positive, negative)
-
+            if isinstance(batch[0], list):
+                anchor_views, pos_views, neg_views = batch
+                anchor = model([img.to(device) for img in anchor_views])
+                positive = model([img.to(device) for img in pos_views])
+                negative = model([img.to(device) for img in neg_views])
+            elif isinstance(batch[0], torch.Tensor):
+                anchor, pos_views, neg_views = batch
+                anchor = model(anchor.unsqueeze(0).to(device))
+                positive = model([img.to(device) for img in pos_views])
+                negative = model([img.to(device) for img in neg_views])
             else:
-                raise NotImplementedError("Unsupported loss function")
+                raise ValueError("Unrecognized batch format for anchor")
 
+            loss = loss_fn(anchor, positive, negative)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
@@ -102,27 +82,38 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=Non
         print(f"[INFO] Epoch {epoch+1} Avg Loss: {avg_loss:.4f}")
         log_writer.writerow([epoch + 1, "", avg_loss])
 
-    log_file.close()
-    if save_path:
-        torch.save(model.state_dict(), save_path)
-        print(f"[✓] Model saved to {save_path}")
+        # Early stopping logic
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            patience_counter = 0
+            if save_path:
+                torch.save(model.state_dict(), save_path)
+                print(f"[✓] Model improved and saved to {save_path}")
+        else:
+            patience_counter += 1
+            print(f"[INFO] No improvement for {patience_counter} epoch(s)")
+            if patience_counter >= patience:
+                print("[⛔] Early stopping triggered.")
+                break
 
-# === CLI ===
+    log_file.close()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True, help="Backbone: mobilenet or efficientnet")
-    parser.add_argument("--method", type=str, required=True, choices=["triplet"], help="Training method")
+    parser.add_argument("--method", type=str, default="triplet", choices=["triplet"])
     parser.add_argument("--data", type=str, required=True, help="Path to dataset")
-    parser.add_argument("--view_mode", type=str, choices=["single", "multi"], default="single", help="single or multi-view input")
-    parser.add_argument("--embedding_dim", type=int, default=128, help="Size of embedding vector")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--save", type=str, default="trained_model.pt", help="Path to save model")
-    parser.add_argument("--resume", type=str, default=None, help="Path to resume training checkpoint")
-    parser.add_argument("--log", type=str, default="train_log.csv", help="Path to CSV log file")
+    parser.add_argument("--view_mode", type=str, choices=["multi"], default="multi")
+    parser.add_argument("--anchor_mode", type=str, choices=["multi", "single"], default="multi", help="Anchor mode: single reference or multi-view")
+    parser.add_argument("--embedding_dim", type=int, default=128)
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--save", type=str, default="trained_model.pt")
+    parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--log", type=str, default="train_log.csv")
     parser.add_argument("--no_parallel", action="store_true", help="Disable DataParallel")
-
+    parser.add_argument("--patience", type=int, default=5, help="Early stopping patience")
 
     args = parser.parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -138,17 +129,11 @@ if __name__ == "__main__":
     ])
 
     model = get_model(args.model, args.view_mode, embedding_dim=args.embedding_dim)
-    dataset = get_dataset(args.method, args.data, transform, args.view_mode)
-    dataloader = DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=16,
-        pin_memory=True
-    )
+    dataset = get_dataset(args.method, args.data, transform, args.view_mode, args.anchor_mode)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=32, pin_memory=True)
 
     loss_fn = get_loss_fn(args.method)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     train(model, dataloader, loss_fn, optimizer, device, args.epochs,
-          resume_path=args.resume, save_path=args.save, log_path=args.log)
+          resume_path=args.resume, save_path=args.save, log_path=args.log, patience=args.patience)
