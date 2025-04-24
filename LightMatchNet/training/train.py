@@ -116,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument("--view_mode", type=str, choices=["single", "multi"], default="single", help="single or multi-view input")
     parser.add_argument("--embedding_dim", type=int, default=128, help="Size of embedding vector")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--save", type=str, default="trained_model.pt", help="Path to save model")
     parser.add_argument("--resume", type=str, default=None, help="Path to resume training checkpoint")
@@ -139,7 +139,13 @@ if __name__ == "__main__":
 
     model = get_model(args.model, args.view_mode, embedding_dim=args.embedding_dim)
     dataset = get_dataset(args.method, args.data, transform, args.view_mode)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=16,
+        pin_memory=True
+    )
 
     loss_fn = get_loss_fn(args.method)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
