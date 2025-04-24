@@ -30,4 +30,5 @@ python3 training/train.py \
   --view_mode multi \
   --resume checkpoints/mobilenet_v3_small_tm_sd.pt \
   --save checkpoints/mobilenet_mutliview_v1.pt
+  --no_parallel
 ```

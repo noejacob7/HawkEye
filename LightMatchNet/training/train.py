@@ -50,9 +50,10 @@ def get_loss_fn(method):
 def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=None, save_path=None, log_path="train_log.csv"):
     model.to(device)
 
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.device_count() > 1 and not args.no_parallel:
         print(f"[INFO] Using {torch.cuda.device_count()} GPUs via DataParallel")
         model = nn.DataParallel(model)
+
 
     if resume_path:
         print(f"[INFO] Resuming from checkpoint: {resume_path}")
@@ -120,6 +121,8 @@ if __name__ == "__main__":
     parser.add_argument("--save", type=str, default="trained_model.pt", help="Path to save model")
     parser.add_argument("--resume", type=str, default=None, help="Path to resume training checkpoint")
     parser.add_argument("--log", type=str, default="train_log.csv", help="Path to CSV log file")
+    parser.add_argument("--no_parallel", action="store_true", help="Disable DataParallel")
+
 
     args = parser.parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
