@@ -4,18 +4,23 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 class TripletMultiViewDataset(Dataset):
-    def __init__(self, root_dir, transform=None, view_suffix="_01"):
+    def __init__(self, root_dir, transform=None, anchor_mode="multi", view_suffix_train="_01", view_suffix_anchor="_02"):
         """
-        root_dir: path to directory with object folders (e.g., id_001, id_002)
-        transform: torchvision transforms
-        view_suffix: used to select view set (_01 for training, _02 for testing)
+        root_dir: folder with subfolders (id_001, id_002, ...)
+        transform: torchvision transform pipeline
+        anchor_mode: 'multi' or 'single' — anchor is fused set or single image
+        view_suffix_train: suffix to identify training views (e.g., '_01')
+        view_suffix_anchor: suffix to identify anchor views (e.g., '_02')
         """
         self.root_dir = root_dir
         self.transform = transform
-        self.view_suffix = view_suffix
+        self.anchor_mode = anchor_mode
+        self.train_suffix = view_suffix_train
+        self.anchor_suffix = view_suffix_anchor
         self.view_types = ["front", "back", "left", "right"]
 
-        self.class_to_views = {}
+        self.class_to_train_views = {}
+        self.class_to_anchor_images = {}
         self.classes = sorted(os.listdir(root_dir))
 
         for cls in self.classes:
@@ -23,23 +28,30 @@ class TripletMultiViewDataset(Dataset):
             if not os.path.isdir(cls_path):
                 continue
 
-            views = []
+            # Load *_01 training views
+            train_views = []
             for view_type in self.view_types:
-                file_name = f"{view_type}{self.view_suffix}.jpg"
-                file_path = os.path.join(cls_path, file_name)
-                if os.path.exists(file_path):
-                    views.append(file_path)
+                path = os.path.join(cls_path, f"{view_type}{self.train_suffix}.jpg")
+                if os.path.exists(path):
+                    train_views.append(path)
+            if len(train_views) >= 2:
+                self.class_to_train_views[cls] = train_views
 
-            if len(views) >= 2:
-                self.class_to_views[cls] = views
+            # Load *_02 anchor reference image
+            anchor_imgs = [
+                os.path.join(cls_path, f) for f in os.listdir(cls_path)
+                if f.endswith(f"{self.anchor_suffix}.jpg")
+            ]
+            if anchor_imgs:
+                self.class_to_anchor_images[cls] = anchor_imgs
 
-        self.class_list = list(self.class_to_views.keys())
+        self.class_list = [cls for cls in self.class_to_train_views if cls in self.class_to_anchor_images]
 
     def __len__(self):
-        return 100000  # for infinite sampling
+        return 100000
 
     def load_views(self, paths):
-        return [self.transform(Image.open(p).convert('RGB')) for p in paths]
+        return [self.transform(Image.open(p).convert("RGB")) for p in paths]
 
     def __getitem__(self, idx):
         anchor_class = random.choice(self.class_list)
@@ -47,12 +59,16 @@ class TripletMultiViewDataset(Dataset):
         while negative_class == anchor_class:
             negative_class = random.choice(self.class_list)
 
-        anchor_paths = self.class_to_views[anchor_class]
-        positive_paths = self.class_to_views[anchor_class]
-        negative_paths = self.class_to_views[negative_class]
+        positive_paths = self.class_to_train_views[anchor_class]
+        negative_paths = self.class_to_train_views[negative_class]
 
-        anchor_views = self.load_views(anchor_paths)
         positive_views = self.load_views(positive_paths)
         negative_views = self.load_views(negative_paths)
 
-        return anchor_views, positive_views, negative_views
+        if self.anchor_mode == "single":
+            anchor_path = random.choice(self.class_to_anchor_images[anchor_class])
+            anchor_image = self.transform(Image.open(anchor_path).convert("RGB"))
+            return anchor_image, positive_views, negative_views
+        else:
+            anchor_views = self.load_views(positive_paths)
+            return anchor_views, positive_views, negative_views
