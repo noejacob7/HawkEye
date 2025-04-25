@@ -104,7 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("--method", type=str, default="triplet", choices=["triplet"])
     parser.add_argument("--data", type=str, required=True, help="Path to dataset")
     parser.add_argument("--view_mode", type=str, choices=["multi"], default="multi")
-    parser.add_argument("--anchor_mode", type=str, choices=["multi", "single"], default="multi", help="Anchor mode: single reference or multi-view")
+    parser.add_argument("--anchor_mode", type=str, choices=["multi", "single"], default="single", help="Anchor mode: single reference or multi-view")
     parser.add_argument("--embedding_dim", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=32)
