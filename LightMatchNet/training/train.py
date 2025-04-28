@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     model = get_model(args.model, args.view_mode, embedding_dim=args.embedding_dim)
     dataset = get_dataset(args.method, args.data, transform, args.view_mode, args.anchor_mode)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=32, pin_memory=True)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=8, pin_memory=True)
 
     loss_fn = get_loss_fn(args.method)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
