@@ -11,6 +11,9 @@ class MultiViewMatchNet(nn.Module):
         elif backbone == "mobilenet":
             from models.mobilenetv3_small import MobileNetMatchNet
             self.encoder = MobileNetMatchNet(embedding_dim=embedding_dim)
+        elif backbone == "swifttracknet":
+            from models.swifttracknet import SwiftTrackNet
+            self.encoder = SwiftTrackNet(embedding_dim=embedding_dim)
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 

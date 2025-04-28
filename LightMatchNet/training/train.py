@@ -100,7 +100,7 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs, resume_path=Non
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, help="Backbone: mobilenet or efficientnet")
+    parser.add_argument("--model", type=str, required=True, help="Backbone: mobilenet, efficientnet or swifttracknet")
     parser.add_argument("--method", type=str, default="triplet", choices=["triplet"])
     parser.add_argument("--data", type=str, required=True, help="Path to dataset")
     parser.add_argument("--view_mode", type=str, choices=["multi"], default="multi")
