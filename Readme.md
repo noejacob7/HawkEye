@@ -57,12 +57,12 @@ python3 training/train.py \
 Example
 ```bash
 python3 training/train.py \
-  --model mobilenet \
+  --model swifttracknet \
   --method triplet \
   --data data/hot_wheels \
   --view_mode multi \
-  --resume checkpoints/mobilenet_v3_small_tm_sd.pt \
-  --save checkpoints/mobilenet_mutliview_v1.pt
+  --resume checkpoints/swifttracknet_mutliview_v1.pt \
+  --save checkpoints/swifttracknet_mutliview_v1.pt \
   --no_parallel
 ```
 
@@ -100,7 +100,7 @@ python3 test_matchnet.py \
 ```bash
 python3 test_matchnet.py \
   --model lightmatchnet \
-  --checkpoint checkpoints/mobilenet_multiview.pt \
+  --checkpoint checkpoints/mobilenet_mutliview_v1.pt \
   --query data/hot_wheels/id_005 \
   --gallery data/hot_wheels \
   --topk 5 \
