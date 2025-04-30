@@ -118,6 +118,34 @@ python evaluate_fusion.py \
   --output_csv fused_results_swift.csv
 ```
 
+# Evaluation Metrics
+
+| Category | Metric | Why it Matters |
+|:---|:---|:---|
+| **Matching Quality** | Top-1 / Top-5 / Top-10 accuracy | Direct matching ability |
+| | Mean Average Precision (mAP) | Ranking quality |
+| | Correct / Incorrect match ratio | Raw success vs fail |
+| **Network Efficiency** | Number of parameters | Model size for storage |
+| | Model file size (MB or KB) | Memory footprint |
+| | Number of layers/blocks | Simplicity, depth |
+| | FLOPs (floating point operations) | How heavy the computation is |
+| **Speed / Deployment** | Inference time per image | How fast per prediction |
+| | FPS (Frames Per Second) | Real-time capability |
+| | Total evaluation time (whole query set) | Batch speed at scale |
+| | CUDA memory usage (if GPU) | RAM footprint at runtime |
+
+
+| Metric | Code ready? |
+|:---|:---|
+| Top-1 / Top-5 / Top-10 / mAP | Matching code |
+| Correct / Incorrect counts | Simple counter |
+| Parameters | Code ready |
+| File size | Code ready |
+| FLOPs | `ptflops` method |
+| Inference time | Code ready |
+| FPS | Code ready |
+| CMC Curve (optional) |  later if needed |
+
 
 # Results
 
