@@ -66,6 +66,10 @@ python3 training/train.py \
   --no_parallel
 ```
 
+```bash
+python3 training/train.py   --model swifttracknet   --method triplet   --data data/VeRi/image_train   --label data/VeRi/train_label.xml   --dataset_type veri   --view_mode multi   --anchor_mode multi   --embedding_dim 128   --epochs 30   --batch_size 16   --lr 1e-4   --save checkpoints/swifttracknet_multiview_v2.pt --no_parallel
+```
+
 ---
 
 ## Testing Cheat Sheet
@@ -108,14 +112,7 @@ python3 test_matchnet.py \
 ```
 
 ```bash
-python evaluate_fusion.py \
-  --model swifttracknet \
-  --checkpoint checkpoints/swifttracknet.pt \
-  --query veri_dataset/sample_query/0001 \
-  --gallery veri_dataset/sample_gallery \
-  --topk 5 \
-  --visualize \
-  --output_csv fused_results_swift.csv
+python3 evaluate_veri.py   --model mobilenet   --checkpoint checkpoints/mobilenet_multiview_v1.pt   --query_dir data/VeRi/image_query   --query_label data/VeRi/test_label.xml   --gallery_dir data/VeRi/image_test   --gallery_label data/VeRi/test_label.xml   --output_csv results/veri_mobilenet.csv   --topk 10
 ```
 
 # Evaluation Metrics
@@ -183,3 +180,4 @@ Correct Matches: 200
 Incorrect Matches: 0
 Avg Query Inference Time: 0.035187 sec
 Avg Gallery Inference Time: 0.226596 sec
+
