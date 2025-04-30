@@ -106,3 +106,14 @@ python3 test_matchnet.py \
   --topk 5 \
   --visualize
 ```
+
+```bash
+python evaluate_fusion.py \
+  --model swifttracknet \
+  --checkpoint checkpoints/swifttracknet.pt \
+  --query veri_dataset/sample_query/0001 \
+  --gallery veri_dataset/sample_gallery \
+  --topk 5 \
+  --visualize \
+  --output_csv fused_results_swift.csv
+```
