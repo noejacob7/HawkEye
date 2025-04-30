@@ -117,3 +117,41 @@ python evaluate_fusion.py \
   --visualize \
   --output_csv fused_results_swift.csv
 ```
+
+
+# Results
+
+From training on hotwheels dataset and testing on veri
+
+## Swifttracknet
+
+Top-1 Accuracy: 63.50%
+Top-5 Accuracy: 86.00%
+Top-10 Accuracy: 91.00%
+Total Queries: 200
+Correct Matches: 200
+Incorrect Matches: 0
+Avg Query Inference Time: 0.010043 sec
+Avg Gallery Inference Time: 0.057173 sec
+
+## Efficientnet
+
+Top-1 Accuracy: 36.50%
+Top-5 Accuracy: 60.00%
+Top-10 Accuracy: 70.50%
+Total Queries: 200
+Correct Matches: 200
+Incorrect Matches: 0
+Avg Query Inference Time: 0.055033 sec
+Avg Gallery Inference Time: 0.362899 sec
+
+## Mobilenet
+
+Top-1 Accuracy: 93.00%
+Top-5 Accuracy: 99.50%
+Top-10 Accuracy: 100.00%
+Total Queries: 200
+Correct Matches: 200
+Incorrect Matches: 0
+Avg Query Inference Time: 0.035187 sec
+Avg Gallery Inference Time: 0.226596 sec
