@@ -85,7 +85,8 @@ def compute_similarity(query_embs, gallery_embs):
         match_ranks = [i for i, (gid, _) in enumerate(sims) if gid == qid]
         if match_ranks:
             rank = match_ranks[0] + 1
-            correct += 1
+            if rank <= args.topk:
+                correct += 1
             if rank == 1: top1 += 1
             if rank <= 5: top5 += 1
             if rank <= 10: top10 += 1

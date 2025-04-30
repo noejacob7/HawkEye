@@ -18,12 +18,14 @@ def get_model(name, view_mode, embedding_dim=128):
     else:
         raise NotImplementedError("Only multi-view supported currently.")
 
-def get_dataset(method, root_dir, transform, view_mode, anchor_mode):
+from datasets.triplet_multiview_dataset import TripletMultiViewDataset
+
+def get_dataset(method, root_dir, transform, view_mode, anchor_mode, label_path=None, dataset_type="hotwheels"):
     if view_mode == "multi":
-        from datasets.triplet_multiview_dataset import TripletMultiViewDataset
-        return TripletMultiViewDataset(root_dir, transform=transform, anchor_mode=anchor_mode)
+        return TripletMultiViewDataset(root_dir, transform=transform, anchor_mode=anchor_mode, label_file=label_path, dataset_type=dataset_type)
     else:
         raise NotImplementedError("Only multi-view supported currently.")
+
 
 def get_loss_fn(method):
     if method == "triplet":
@@ -114,6 +116,8 @@ if __name__ == "__main__":
     parser.add_argument("--log", type=str, default="train_log.csv")
     parser.add_argument("--no_parallel", action="store_true", help="Disable DataParallel")
     parser.add_argument("--patience", type=int, default=5, help="Early stopping patience")
+    parser.add_argument("--label", type=str, help="Path to label XML file (VeRi only)")
+    parser.add_argument("--dataset_type", type=str, default="hotwheels", choices=["hotwheels", "veri"], help="Dataset structure type")
 
     args = parser.parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -129,7 +133,7 @@ if __name__ == "__main__":
     ])
 
     model = get_model(args.model, args.view_mode, embedding_dim=args.embedding_dim)
-    dataset = get_dataset(args.method, args.data, transform, args.view_mode, args.anchor_mode)
+    dataset = get_dataset(args.method, args.data, transform, args.view_mode, args.anchor_mode, args.label, args.dataset_type)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16, pin_memory=True)
 
     loss_fn = get_loss_fn(args.method)

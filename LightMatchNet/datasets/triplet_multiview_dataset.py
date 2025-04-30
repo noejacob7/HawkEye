@@ -2,50 +2,54 @@ import os
 import random
 from PIL import Image
 from torch.utils.data import Dataset
+import xml.etree.ElementTree as ET
+from collections import defaultdict
 
 class TripletMultiViewDataset(Dataset):
-    def __init__(self, root_dir, transform=None, anchor_mode="single", view_suffix_train="_01", view_suffix_anchor="_02"):
+    def __init__(self, root_dir, transform=None, anchor_mode="single", label_file=None, dataset_type="hotwheels"):
         """
-        root_dir: folder with subfolders (id_001, id_002, ...)
+        root_dir: path to training images (flat for veri, folders for hotwheels)
         transform: torchvision transform pipeline
-        anchor_mode: 'multi' or 'single' — anchor is fused set or single image
-        view_suffix_train: suffix to identify training views (e.g., '_01')
-        view_suffix_anchor: suffix to identify anchor views (e.g., '_02')
+        anchor_mode: 'multi' or 'single'
+        label_file: optional XML label file (required for veri)
+        dataset_type: 'veri' or 'hotwheels'
         """
         self.root_dir = root_dir
         self.transform = transform
         self.anchor_mode = anchor_mode
-        self.train_suffix = view_suffix_train
-        self.anchor_suffix = view_suffix_anchor
-        self.view_types = ["front", "back", "left", "right"]
+        self.dataset_type = dataset_type
 
-        self.class_to_train_views = {}
-        self.class_to_anchor_images = {}
-        self.classes = sorted(os.listdir(root_dir))
+        self.class_to_images = defaultdict(list)
 
-        for cls in self.classes:
-            cls_path = os.path.join(root_dir, cls)
-            if not os.path.isdir(cls_path):
-                continue
+        if dataset_type == "veri":
+            if label_file is None:
+                raise ValueError("label_file must be provided for veri dataset")
+            label_map = self.parse_veri_label(label_file)
+            for fname in os.listdir(root_dir):
+                if fname.endswith(".jpg") and fname in label_map:
+                    vid = label_map[fname]
+                    self.class_to_images[vid].append(os.path.join(root_dir, fname))
+        elif dataset_type == "hotwheels":
+            for cls in os.listdir(root_dir):
+                cls_path = os.path.join(root_dir, cls)
+                if not os.path.isdir(cls_path):
+                    continue
+                for fname in os.listdir(cls_path):
+                    if fname.endswith(".jpg"):
+                        self.class_to_images[cls].append(os.path.join(cls_path, fname))
+        else:
+            raise ValueError("Unsupported dataset_type")
 
-            # Load *_01 training views
-            train_views = []
-            for view_type in self.view_types:
-                path = os.path.join(cls_path, f"{view_type}{self.train_suffix}.jpg")
-                if os.path.exists(path):
-                    train_views.append(path)
-            if len(train_views) >= 2:
-                self.class_to_train_views[cls] = train_views
+        self.class_list = [k for k in self.class_to_images if len(self.class_to_images[k]) >= 2]
 
-            # Load *_02 anchor reference image
-            anchor_imgs = [
-                os.path.join(cls_path, f) for f in os.listdir(cls_path)
-                if f.endswith(f"{self.anchor_suffix}.jpg")
-            ]
-            if anchor_imgs:
-                self.class_to_anchor_images[cls] = anchor_imgs
-
-        self.class_list = [cls for cls in self.class_to_train_views if cls in self.class_to_anchor_images]
+    def parse_veri_label(self, label_path):
+        with open(label_path, 'r', encoding='gb2312', errors='ignore') as f:
+            xml_content = f.read()
+        root = ET.fromstring(xml_content)
+        label_map = {}
+        for item in root.findall(".//Item"):
+            label_map[item.attrib['imageName']] = item.attrib['vehicleID']
+        return label_map
 
     def __len__(self):
         return 100000
@@ -59,16 +63,16 @@ class TripletMultiViewDataset(Dataset):
         while negative_class == anchor_class:
             negative_class = random.choice(self.class_list)
 
-        positive_paths = self.class_to_train_views[anchor_class]
-        negative_paths = self.class_to_train_views[negative_class]
+        pos_paths = self.class_to_images[anchor_class]
+        neg_paths = self.class_to_images[negative_class]
 
-        positive_views = self.load_views(positive_paths)
-        negative_views = self.load_views(negative_paths)
+        # randomly select 2+ positive views
+        positive_views = self.load_views(random.sample(pos_paths, min(3, len(pos_paths))))
+        negative_views = self.load_views(random.sample(neg_paths, min(3, len(neg_paths))))
 
         if self.anchor_mode == "single":
-            anchor_path = random.choice(self.class_to_anchor_images[anchor_class])
-            anchor_image = self.transform(Image.open(anchor_path).convert("RGB"))
-            return anchor_image, positive_views, negative_views
+            anchor_img = self.transform(Image.open(random.choice(pos_paths)).convert("RGB"))
+            return anchor_img, positive_views, negative_views
         else:
-            anchor_views = self.load_views(positive_paths)
+            anchor_views = self.load_views(random.sample(pos_paths, min(3, len(pos_paths))))
             return anchor_views, positive_views, negative_views
