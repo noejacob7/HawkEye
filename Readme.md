@@ -146,9 +146,9 @@ python3 evaluate_veri.py   --model mobilenet   --checkpoint checkpoints/mobilene
 
 # Results
 
-From training on hotwheels dataset and testing on veri
+## Training on hotwheels -- Testing on veri
 
-## Swifttracknet
+### Swifttracknet
 
 Top-1 Accuracy: 63.50%
 Top-5 Accuracy: 86.00%
@@ -159,7 +159,7 @@ Incorrect Matches: 0
 Avg Query Inference Time: 0.010043 sec
 Avg Gallery Inference Time: 0.057173 sec
 
-## Efficientnet
+### Efficientnet
 
 Top-1 Accuracy: 36.50%
 Top-5 Accuracy: 60.00%
@@ -170,7 +170,7 @@ Incorrect Matches: 0
 Avg Query Inference Time: 0.055033 sec
 Avg Gallery Inference Time: 0.362899 sec
 
-## Mobilenet
+### Mobilenet
 
 Top-1 Accuracy: 93.00%
 Top-5 Accuracy: 99.50%
@@ -181,3 +181,35 @@ Incorrect Matches: 0
 Avg Query Inference Time: 0.035187 sec
 Avg Gallery Inference Time: 0.226596 sec
 
+### Training on veri -- Testing on veri
+
+### Mobilenet
+
+Top-1 Accuracy: 94.50%
+Top-5 Accuracy: 100.00%
+Top-10 Accuracy: 100.00%
+Total Queries: 200
+Correct Matches: 200
+Incorrect Matches: 0
+Avg Query Inference Time: 0.042103 sec
+Avg Gallery Inference Time: 0.264792 sec
+
+### Swifttracknet
+
+Top-1 Accuracy: 90.50%
+Top-5 Accuracy: 98.50%
+Top-10 Accuracy: 99.50%
+Total Queries: 200
+Correct Matches: 199
+Incorrect Matches: 1
+Avg Query Inference Time: 0.012529 sec
+Avg Gallery Inference Time: 0.065119 sec
+
+Top-1 Accuracy: 93.50%
+Top-5 Accuracy: 98.50%
+Top-10 Accuracy: 99.50%
+Total Queries: 200
+Correct Matches: 199
+Incorrect Matches: 1
+Avg Query Inference Time: 0.011895 sec
+Avg Gallery Inference Time: 0.063725 sec
