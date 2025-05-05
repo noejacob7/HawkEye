@@ -1,0 +1,32 @@
+Metric,Value
+mAP,95.60%
+CMC@1,93.00%
+CMC@2,97.00%
+CMC@3,98.00%
+CMC@4,98.50%
+CMC@5,98.50%
+CMC@6,98.50%
+CMC@7,98.50%
+CMC@8,99.00%
+CMC@9,99.00%
+CMC@10,99.00%
+CMC@11,99.00%
+CMC@12,99.50%
+CMC@13,99.50%
+CMC@14,100.00%
+CMC@15,100.00%
+CMC@16,100.00%
+CMC@17,100.00%
+CMC@18,100.00%
+CMC@19,100.00%
+CMC@20,100.00%
+Top-1 Accuracy,93.00%
+Top-5 Accuracy,98.50%
+Top-10 Accuracy,99.00%
+Avg Cosine Similarity,0.9990
+Total Queries,200
+Avg Query Inference Time (sec),0.009898
+Avg Gallery Inference Time (sec),0.056777
+Model Parameters,"25,251.0"
+Model FLOPs,"47,320,960.0"
+Model Size (MB),0.18

@@ -112,7 +112,18 @@ python3 test_matchnet.py \
 ```
 
 ```bash
-python3 evaluate_veri.py   --model mobilenet   --checkpoint checkpoints/mobilenet_multiview_v1.pt   --query_dir data/VeRi/image_query   --query_label data/VeRi/test_label.xml   --gallery_dir data/VeRi/image_test   --gallery_label data/VeRi/test_label.xml   --output_csv results/veri_mobilenet.csv   --topk 10
+python3 evaluate_veri_1.py   --model mobilenet   --checkpoint checkpoints/mobilenet_multiview_v1.pt   --query_dir data/VeRi/image_query   --query_label data/VeRi/test_label.xml   --gallery_dir data/VeRi/image_test   --gallery_label data/VeRi/test_label.xml   --output_csv results/veri_mobilenet.csv   --topk 10
+```
+
+```bash
+python3 evaluate_veri.py \
+    --model swifttracknet \
+    --checkpoint checkpoints/swifttracknet_multiview_v2_2.pt \
+    --query_dir data/VeRi/image_query \
+    --query_label data/VeRi/test_label.xml \
+    --gallery_dir data/VeRi/image_test \
+    --gallery_label data/VeRi/test_label.xml \
+    --summary_csv veri_eval_metrics_swifttracknet.csv
 ```
 
 # Evaluation Metrics
