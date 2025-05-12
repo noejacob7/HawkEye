@@ -1,0 +1,33 @@
+# requirements.txt
+# Core ML + Vision
+torch>=1.12
+torchvision>=0.13
+
+# Data handling
+pandas>=1.5
+numpy>=1.21,<2.0
+scipy>=1.7,<1.11
+
+# Visualizations
+matplotlib>=3.5
+seaborn>=0.11
+plotly>=5.10
+
+# Dimensionality reduction
+scikit-learn>=1.1,<1.4
+
+# Profiling
+thop>=0.1.1
+
+# Image processing
+Pillow>=9.0
+
+# Progress bars
+tqdm>=4.62
+
+# Optional for notebooks
+ipykernel
+jupyter
+
+# Ensure UTF-8 parsing
+chardet

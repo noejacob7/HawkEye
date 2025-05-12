@@ -1,1 +1,44 @@
-LightMatchNet/__pycache__/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+thesis_env/
+.env/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# macOS files
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.bak
+*.old
+
+# Environment config
+.envrc
+*.env
+
+# Cache folders
+.cache/
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# My personal notes or configs (optional)
+notes/
