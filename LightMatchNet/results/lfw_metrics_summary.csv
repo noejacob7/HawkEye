@@ -1,0 +1,10 @@
+Metric,Value
+Total Pairs,6000
+Accuracy,50.1167
+Avg Cosine (Same),0.9158
+Avg Cosine (Diff),0.8906
+Best Threshold,0.9500
+Best Accuracy,56.6333
+Model Parameters,"4,171,516.0"
+Model FLOPs,"414,028,864.0"
+Model Size (MB),16.27
