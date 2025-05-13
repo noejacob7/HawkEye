@@ -42,3 +42,6 @@ dist/
 
 # My personal notes or configs (optional)
 notes/
+
+# data files
+LightMatchNet/data/

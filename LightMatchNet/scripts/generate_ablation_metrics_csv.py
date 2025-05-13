@@ -1,4 +1,4 @@
-# generate_ablation_metrics.py
+# generate_ablation_metrics.py (Optimized with gallery pre-embedding & full GPU usage)
 import os
 import sys
 import csv
@@ -24,8 +24,8 @@ QUERY_DIR = "data/VeRi/image_query"
 GALLERY_DIR = "data/VeRi/image_test"
 CHECKPOINTS = {
     "fusion": "checkpoints/swifttracknet_multiview_v2_2.pt",
-    "avg_pool": "checkpoints/swifttracknet_avgpool.pt",
-    "single": "checkpoints/swifttracknet_single.pt"
+    "avg_pool": "checkpoints/swifttracknet_multiview_v2_2.pt",
+    "single": "checkpoints/swifttracknet_multiview_v2_2.pt"
 }
 BACKBONES = {
     "fusion": "swifttracknet",
@@ -35,8 +35,8 @@ BACKBONES = {
 OUTPUT_CSV = "experiments/metrics/ablation_metrics.csv"
 TOP_K = [1, 5, 10]
 
-# Setup device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Setup device (force single GPU)
+device = torch.device("cuda:0")
 
 # Transform
 transform = transforms.Compose([
@@ -59,14 +59,33 @@ for variant, ckpt in CHECKPOINTS.items():
     backbone = BACKBONES[variant]
     model = MultiViewMatchNet(backbone=backbone, embedding_dim=128)
     model.load_state_dict(torch.load(ckpt, map_location=device))
-    model.to(device)
-    model.eval()
+    model.to(device).eval()
 
     # Profile size and FLOPs
     dummy_input = [torch.randn(1, 3, 224, 224).to(device)]
     flops, params = profile(model.encoder, inputs=dummy_input, verbose=False)
     model_size_mb = os.path.getsize(ckpt) / (1024 * 1024)
 
+    # Precompute gallery embeddings
+    print("[INFO] Precomputing gallery embeddings...")
+    gallery_embeddings = []
+    gallery_vids = []
+
+    with torch.no_grad():
+        for g_vid, g_imgs in tqdm(id_to_gallery.items(), desc="Gallery"): 
+            for g_img in g_imgs:
+                g_path = os.path.join(GALLERY_DIR, g_img)
+                if not os.path.exists(g_path): continue
+                img = Image.open(g_path).convert("RGB")
+                tensor = transform(img).unsqueeze(0).to(device)
+                emb = model([tensor.squeeze(0)])
+                gallery_embeddings.append(emb)
+                gallery_vids.append(g_vid)
+
+    gallery_embeddings = torch.cat(gallery_embeddings, dim=0)  # (N, 128)
+    gallery_vids = torch.tensor([int(v) for v in gallery_vids])
+
+    # Query loop
     correct_at_k = {k: 0 for k in TOP_K}
     total = 0
     total_time = 0.0
@@ -78,25 +97,16 @@ for variant, ckpt in CHECKPOINTS.items():
                 continue
             q_tensor = transform(Image.open(q_path).convert("RGB")).unsqueeze(0).to(device)
             start = time.time()
-            q_emb = model([q_tensor.squeeze(0)]) if variant != "fusion" else model([q_tensor.squeeze(0)])
+            q_emb = model([q_tensor.squeeze(0)])  # (1, 128)
             total_time += time.time() - start
 
-            sims = []
-            for g_vid, g_imgs in id_to_gallery.items():
-                for g_img in g_imgs:
-                    g_path = os.path.join(GALLERY_DIR, g_img)
-                    if not os.path.exists(g_path):
-                        continue
-                    g_tensor = transform(Image.open(g_path).convert("RGB")).unsqueeze(0).to(device)
-                    g_emb = model([g_tensor.squeeze(0)])
-                    sim = F.cosine_similarity(q_emb, g_emb).item()
-                    sims.append((g_vid, sim))
+            sims = F.cosine_similarity(q_emb, gallery_embeddings).cpu().tolist()
+            ranked = sorted(zip(gallery_vids.tolist(), sims), key=lambda x: x[1], reverse=True)
 
-            sims = sorted(sims, key=lambda x: x[1], reverse=True)
             total += 1
             for k in TOP_K:
-                top_k_vids = [vid for vid, _ in sims[:k]]
-                if q_vid in top_k_vids:
+                top_k = [vid for vid, _ in ranked[:k]]
+                if int(q_vid) in top_k:
                     correct_at_k[k] += 1
 
     avg_time = total_time / total
