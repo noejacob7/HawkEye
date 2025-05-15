@@ -70,6 +70,23 @@ python3 training/train.py \
 python3 training/train.py   --model swifttracknet   --method triplet   --data data/VeRi/image_train   --label data/VeRi/train_label.xml   --dataset_type veri   --view_mode multi   --anchor_mode multi   --embedding_dim 128   --epochs 30   --batch_size 16   --lr 1e-4   --save checkpoints/swifttracknet_multiview_v2.pt --no_parallel
 ```
 
+```bash
+python3 training/train_veri_weighted.py \
+  --model swifttracknet \
+  --method triplet \
+  --data data/VeRi/veri_all_metadata.json \
+  --veri_root data/VeRi \
+  --view_mode multi \
+  --anchor_mode multi \
+  --embedding_dim 128 \
+  --epochs 30 \
+  --batch_size 16 \
+  --lr 1e-4 \
+  --save checkpoints/swifttracknet_multiview_v3.pt \
+  --no_parallel
+
+```
+
 ---
 
 ## Testing Cheat Sheet

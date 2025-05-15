@@ -8,15 +8,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 def load_model(model_name, checkpoint_path, device):
-    if model_name == "lightmatchnet":
-        from models.multiview_matchnet import MultiViewMatchNet
-        model = MultiViewMatchNet(backbone="mobilenet", embedding_dim=128)
-    elif model_name == "efficientnet":
-        from models.multiview_matchnet import MultiViewMatchNet
-        model = MultiViewMatchNet(backbone="efficientnet", embedding_dim=128)
-    else:
-        raise ValueError(f"Unknown model: {model_name}")
-
+    from models.multiview_matchnet import MultiViewMatchNet
+    model = MultiViewMatchNet(backbone=model_name, embedding_dim=128)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model = model.to(device).eval()
     return model
@@ -106,7 +99,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, choices=["lightmatchnet", "efficientnet"])
+    parser.add_argument("--model", type=str, required=True, choices=["mobilenet", "efficientnet", "swifttracknet"])
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--query", type=str, required=True, help="Folder containing *_02.jpg views")
     parser.add_argument("--gallery", type=str, required=True, help="Parent folder containing ID folders with *_01.jpg views")

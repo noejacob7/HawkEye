@@ -1,0 +1,29 @@
+Metric,Value
+Top-1 Accuracy,5.2368
+Top-5 Accuracy,14.1166
+Top-10 Accuracy,18.8980
+mAP,2.5407
+CMC@1,5.24%
+CMC@2,8.20%
+CMC@3,10.75%
+CMC@4,12.48%
+CMC@5,14.12%
+CMC@6,15.16%
+CMC@7,16.12%
+CMC@8,16.99%
+CMC@9,18.17%
+CMC@10,18.90%
+CMC@11,19.72%
+CMC@12,20.54%
+CMC@13,21.36%
+CMC@14,21.95%
+CMC@15,22.72%
+CMC@16,23.45%
+CMC@17,23.91%
+CMC@18,24.45%
+CMC@19,25.14%
+CMC@20,25.77%
+Total Queries,2196
+Model Parameters,"25,251.0"
+Model FLOPs,"47,320,960.0"
+Model Size (MB),0.18
