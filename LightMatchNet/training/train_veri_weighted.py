@@ -125,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--resume", type=str)
     parser.add_argument("--log", type=str, default="train_log.csv")
     parser.add_argument("--no_parallel", action="store_true")
-    parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--veri_root", type=str, default="data/VeRi")
     args = parser.parse_args()
 
