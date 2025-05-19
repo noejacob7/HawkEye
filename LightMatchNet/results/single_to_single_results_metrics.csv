@@ -2,6 +2,6 @@ metric,value
 Top-1,0.8427
 Top-5,0.9374
 Top-10,0.9625
-mAP,0.1855
-Avg_Correct_Sim,0.9281
+mAP,0.1854
+Avg_Correct_Sim,0.9916
 Avg_Incorrect_Sim,0.7322

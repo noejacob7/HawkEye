@@ -1,7 +1,0 @@
-metric,value
-Top-1,1.0000
-Top-5,1.0000
-Top-10,1.0000
-mAP,0.1952
-Avg_Correct_Sim,0.9281
-Avg_Incorrect_Sim,0.7322
