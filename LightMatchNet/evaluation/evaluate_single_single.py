@@ -57,9 +57,6 @@ def get_embedding(model, image_path, device):
     with torch.no_grad():
         return model([tensor])[0].cpu()
 
-def fuse_embeddings(embeddings):
-    return torch.mean(torch.stack(embeddings), dim=0)
-
 def compute_ap(ranked_ids, is_match):
     ap, hits = 0.0, 0
     for i, vid in enumerate(ranked_ids):
@@ -78,43 +75,33 @@ def evaluate(args):
     gallery_labels = parse_label_xml(args.gallery_label)
     query_filenames = load_query_filenames(args.query_list)
 
-    query_groups = defaultdict(list)
-    for fname, meta in query_labels.items():
-        if fname in query_filenames:
-            query_groups[meta['vehicleID']].append(fname)
-
-    gallery_files = [fname for fname in gallery_labels if fname not in query_filenames]
-    gallery_vids = [gallery_labels[f]['vehicleID'] for f in gallery_files]
-    gallery_metas = [gallery_labels[f] for f in gallery_files]
-
-    gallery_embs = []
-    for fname in tqdm(gallery_files, desc="Extracting gallery embeddings"):
-        path = os.path.join(args.gallery_dir, fname)
-        if os.path.exists(path):
-            gallery_embs.append(get_embedding(model, path, device))
-    gallery_matrix = torch.stack(gallery_embs)
+    query_items = [(fname, query_labels[fname]) for fname in query_filenames if fname in query_labels]
+    gallery_items = [(fname, meta) for fname, meta in gallery_labels.items() if fname not in query_filenames]
 
     results = []
     cmc_ranks = [1, 5, 10, 20, 50]
     cmc_hit_counts = {k: 0 for k in cmc_ranks}
     correct_sims, incorrect_sims, ap_list = [], [], []
     top1 = top5 = top10 = 0
-    total_queries = len(query_groups)
+    total = len(query_items)
 
-    for qvid, fnames in tqdm(query_groups.items(), desc="Evaluating fused queries"):
-        embeddings = [get_embedding(model, os.path.join(args.query_dir, f), device)
-                      for f in fnames if os.path.exists(os.path.join(args.query_dir, f))]
-        if not embeddings:
-            continue
+    for qfname, qmeta in tqdm(query_items, desc="Evaluating single query to single gallery"):
+        qvid = qmeta['vehicleID']
+        q_emb = get_embedding(model, os.path.join(args.query_dir, qfname), device)
 
-        fused_query = fuse_embeddings(embeddings)
-        query_meta = query_labels[fnames[0]]
+        gallery_embs, gallery_vids = [], []
+        for gfname, gmeta in gallery_items:
+            emb = get_embedding(model, os.path.join(args.gallery_dir, gfname), device)
+            gallery_embs.append(emb)
+            gallery_vids.append(gmeta['vehicleID'])
+
+        gallery_matrix = torch.stack(gallery_embs)
 
         def is_match(gid):
-            gmeta = gallery_labels.get(gallery_files[gallery_vids.index(gid)], {})
-            return (args.soft_match and is_soft_match(query_meta, gmeta)) or (not args.soft_match and gid == qvid)
+            gmeta = next((meta for _, meta in gallery_items if meta['vehicleID'] == gid), {})
+            return (args.soft_match and is_soft_match(qmeta, gmeta)) or (not args.soft_match and gid == qvid)
 
-        sims = F.cosine_similarity(fused_query, gallery_matrix)
+        sims = F.cosine_similarity(q_emb, gallery_matrix)
         sim_list = [(gallery_vids[i], sims[i].item()) for i in range(len(gallery_vids))]
 
         ranked = sorted(sim_list, key=lambda x: x[1], reverse=True)
@@ -138,7 +125,7 @@ def evaluate(args):
         correct_sims.append(cos_correct[0] if cos_correct else 0)
         incorrect_sims.extend([s for v, s in ranked if not is_match(v)])
 
-        results.append({"query_vid": qvid, "AP": ap, "rank": match_rank})
+        results.append({"query_image": qfname, "gt_vid": qvid, "AP": ap, "rank": match_rank})
 
     metrics_path = args.output_csv.replace(".csv", "_metrics.csv")
     os.makedirs(os.path.dirname(args.output_csv), exist_ok=True)
@@ -148,14 +135,14 @@ def evaluate(args):
         writer.writerows(results)
     with open(metrics_path, "w") as f:
         f.write("metric,value\n")
-        f.write(f"Top-1,{top1/total_queries:.4f}\n")
-        f.write(f"Top-5,{top5/total_queries:.4f}\n")
-        f.write(f"Top-10,{top10/total_queries:.4f}\n")
-        f.write(f"mAP,{sum(ap_list)/total_queries:.4f}\n")
+        f.write(f"Top-1,{top1/total:.4f}\n")
+        f.write(f"Top-5,{top5/total:.4f}\n")
+        f.write(f"Top-10,{top10/total:.4f}\n")
+        f.write(f"mAP,{sum(ap_list)/total:.4f}\n")
         f.write(f"Avg_Correct_Sim,{sum(correct_sims)/len(correct_sims):.4f}\n")
         f.write(f"Avg_Incorrect_Sim,{sum(incorrect_sims)/len(incorrect_sims):.4f}\n")
         for k in cmc_ranks:
-            f.write(f"CMC@{k},{cmc_hit_counts[k]/total_queries:.4f}\n")
+            f.write(f"CMC@{k},{cmc_hit_counts[k]/total:.4f}\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
