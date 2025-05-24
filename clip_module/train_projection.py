@@ -13,11 +13,12 @@ from PIL import Image
 
 from clip_module.utils import set_seed, save_checkpoint
 from clip_module.get_clip import load_clip_model
-from clip_module.projection_head import ProjectionHead
+from clip_module.projection_head_dcca import DCCAProjectionHead as ProjectionHead
 from clip_module.T2I_VeRi.dataset import T2IVeRiTextImageDataset
+from clip_module.data.vrai_dataset import VRAITextImageDataset
+
 
 from LightMatchNet.models.multiview_matchnet import MultiViewMatchNet
-
 
 def train_one_epoch(dataloader, clip_model, light_model, proj_head, optimizer, device):
     clip_model.eval()
@@ -25,11 +26,29 @@ def train_one_epoch(dataloader, clip_model, light_model, proj_head, optimizer, d
     loss_fn = nn.CosineEmbeddingLoss(margin=0.0)
 
     running_loss = 0.0
-    for images, texts, _ in tqdm(dataloader, desc="  Training"):
-        images = images.to(device)
+    grouped_images = {}
+    grouped_texts = {}
 
-        if isinstance(texts, torch.Tensor):
-            tokenized = texts.to(device)
+    for images, texts, vids in dataloader:
+        for img, txt, vid in zip(images, texts, vids):
+            grouped_images.setdefault(vid, []).append(img)
+            grouped_texts.setdefault(vid, []).append(txt)
+
+    for vid in tqdm(grouped_images.keys(), desc="Training VID fusion"):
+        imgs = grouped_images[vid]
+        texts = grouped_texts[vid]
+        images_tensor = [img.to(device) for img in imgs]
+
+        with torch.no_grad():
+            img_embs = torch.stack([
+                light_model([img.unsqueeze(0)])[0] for img in images_tensor
+            ])
+            fused_img = light_model.pool(img_embs).unsqueeze(0)
+            fused_img = fused_img / fused_img.norm(dim=-1, keepdim=True)
+
+        # tokenized = clip.tokenize(texts, truncate=True).to(device)
+        if isinstance(texts[0], torch.Tensor):  # already tokenized
+            tokenized = torch.stack(texts).to(device)
         else:
             tokenized = clip.tokenize(texts, truncate=True).to(device)
 
@@ -37,26 +56,22 @@ def train_one_epoch(dataloader, clip_model, light_model, proj_head, optimizer, d
             txt_emb = clip_model.encode_text(tokenized).float()
             txt_emb = txt_emb / txt_emb.norm(dim=-1, keepdim=True)
 
-            img_embs = torch.stack([
-                light_model([img.unsqueeze(0).to(device)])[0]
-                for img in images
-            ], dim=0)
-            img_embs = img_embs / img_embs.norm(dim=-1, keepdim=True)
-
         proj_txt = proj_head(txt_emb)
         proj_txt = proj_txt / proj_txt.norm(dim=-1, keepdim=True)
 
-        targets = torch.ones(images.size(0), device=device)
-        loss = loss_fn(proj_txt, img_embs, targets)
+        if fused_img.ndim == 2 and proj_txt.ndim == 2:
+            fused_img = fused_img.expand(proj_txt.size(0), -1)
+
+        targets = torch.ones(proj_txt.size(0), device=device)
+        loss = loss_fn(proj_txt, fused_img, targets)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        running_loss += loss.item() * images.size(0)
+        running_loss += loss.item() * proj_txt.size(0)
 
     return running_loss / len(dataloader.dataset)
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -74,14 +89,13 @@ def main():
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     set_seed(args.seed)
 
     clip_model, clip_preprocess, _ = load_clip_model(device=device)
-
-    light_model = MultiViewMatchNet(backbone="swifttracknet", embedding_dim=128)
+    light_model = MultiViewMatchNet(backbone="swifttracknet", embedding_dim=128).to(device)
     light_model.load_state_dict(torch.load(args.lightmatch_ckpt, map_location=device))
-    light_model = light_model.to(device).eval()
+    light_model.eval()
 
     proj_head = ProjectionHead(input_dim=512, output_dim=args.proj_out_dim).to(device)
     optimizer = optim.Adam(proj_head.parameters(), lr=args.lr)
@@ -97,12 +111,19 @@ def main():
         start_epoch = 1
         best_loss = float("inf")
 
-    ds = T2IVeRiTextImageDataset(
-        data_json=args.data_json,
-        image_root=args.image_root,
-        split="train",
+    # ds = T2IVeRiTextImageDataset(
+    #     data_json=args.data_json,
+    #     image_root=args.image_root,
+    #     split="train",
+    #     transform=clip_preprocess,
+    #     tokenizer=lambda caps, context_length=77: clip.tokenize(caps, context_length=context_length, truncate=True),
+    # )
+    ds = VRAITextImageDataset(
+        annotation_path="data/VRAI/train_annotation.pkl",
+        image_dir="data/VRAI/images_train",
         transform=clip_preprocess,
         tokenizer=lambda caps, context_length=77: clip.tokenize(caps, context_length=context_length, truncate=True),
+        split="train"
     )
     dl = DataLoader(ds, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
@@ -110,7 +131,6 @@ def main():
         avg_loss = train_one_epoch(dl, clip_model, light_model, proj_head, optimizer, device)
         print(f"[Epoch {epoch}] avg loss: {avg_loss:.4f}")
 
-        # Save latest
         save_checkpoint({
             "model_state": proj_head.state_dict(),
             "optim_state": optimizer.state_dict(),
@@ -118,7 +138,6 @@ def main():
             "best_loss": best_loss,
         }, os.path.join(args.output_dir, "proj_latest.pt"))
 
-        # Save best
         if avg_loss < best_loss:
             best_loss = avg_loss
             save_checkpoint({

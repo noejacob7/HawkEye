@@ -7,7 +7,8 @@ from torchvision import transforms
 import clip
 
 from clip_module.get_clip import load_clip_model
-from clip_module.projection_head import ProjectionHead
+# from clip_module.projection_head import ProjectionHead # old
+from clip_module.projection_head_dcca import DCCAProjectionHead as ProjectionHead
 from clip_module.T2I_VeRi.dataset import T2IVeRiTextImageDataset
 from LightMatchNet.models.multiview_matchnet import MultiViewMatchNet
 from clip_module.utils import compute_cmc_map

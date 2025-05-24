@@ -48,3 +48,4 @@ LightMatchNet/data/
 LightMatchNet/thesis_eval/
 clip_module/T2I_VeRi/image/
 clip_module/T2I_VeRi/reid.json
+data/
