@@ -1,18 +1,18 @@
 import torch
 import torch.nn as nn
-from models.attention_pool import AttentionPool
+from LightMatchNet.models.attention_pool import AttentionPool
 
 class MultiViewMatchNet(nn.Module):
     def __init__(self, backbone="efficientnet", embedding_dim=128):
         super(MultiViewMatchNet, self).__init__()
         if backbone == "efficientnet":
-            from models.efficientnet_matchnet import EfficientNetMatchNet
+            from LightMatchNet.models.efficientnet_matchnet import EfficientNetMatchNet
             self.encoder = EfficientNetMatchNet(embedding_dim=embedding_dim)
         elif backbone == "mobilenet":
-            from models.mobilenetv3_small import MobileNetMatchNet
+            from LightMatchNet.models.mobilenetv3_small import MobileNetMatchNet
             self.encoder = MobileNetMatchNet(embedding_dim=embedding_dim)
         elif backbone == "swifttracknet":
-            from models.swifttracknet import SwiftTrackNet
+            from LightMatchNet.models.swifttracknet import SwiftTrackNet
             self.encoder = SwiftTrackNet(embedding_dim=embedding_dim)
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")

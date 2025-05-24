@@ -1,12 +1,5 @@
 metric,value
-Top-1,0.3750
-Top-5,0.6700
-Top-10,0.7750
-mAP,0.1980
-Avg_Correct_Sim,0.9869
-Avg_Incorrect_Sim,0.7610
-CMC@1,0.3750
-CMC@5,0.6700
+mAP,0.1985
+CMC@1,0.3800
+CMC@5,0.6500
 CMC@10,0.7750
-CMC@20,0.8750
-CMC@50,0.9450

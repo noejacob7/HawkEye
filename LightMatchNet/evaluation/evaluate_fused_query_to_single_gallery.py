@@ -1,173 +1,219 @@
-import os, sys
+#!/usr/bin/env python3
+import os
+import sys
 import argparse
+import csv
+from collections import defaultdict
+
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
-import xml.etree.ElementTree as ET
-import csv
-from collections import defaultdict
 
+# allow imports from parent directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from models.multiview_matchnet import MultiViewMatchNet
 
+
 def parse_label_xml(xml_path):
+    """Parse VeRi XML and return a dict: imageName → metadata dict."""
+    import xml.etree.ElementTree as ET
     with open(xml_path, 'r', encoding='gb2312', errors='ignore') as f:
-        content = f.read()
-    root = ET.fromstring(content)
+        root = ET.fromstring(f.read())
     return {
         item.attrib['imageName']: {
             'vehicleID': item.attrib['vehicleID'],
-            'cameraID': item.attrib['cameraID'],
-            'colorID': item.attrib['colorID'],
-            'typeID': item.attrib['typeID']
-        } for item in root.findall(".//Item")
+            'cameraID' : item.attrib['cameraID'],
+            'colorID'  : item.attrib['colorID'],
+            'typeID'   : item.attrib['typeID'],
+        }
+        for item in root.findall(".//Item")
     }
 
-def is_soft_match(query_meta, gallery_meta):
-    return (
-        query_meta and gallery_meta and
-        query_meta['colorID'] == gallery_meta['colorID'] and
-        query_meta['typeID'] == gallery_meta['typeID']
-    )
 
-def load_query_filenames(query_list_path):
-    with open(query_list_path, 'r') as f:
-        return set([line.strip() for line in f.readlines()])
+def load_query_list(path):
+    """Load list of query filenames (one per line)."""
+    with open(path, 'r') as f:
+        return set(line.strip() for line in f)
 
-def load_model(backbone, checkpoint_path, device):
-    model = MultiViewMatchNet(backbone=backbone, embedding_dim=128)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    return model.to(device).eval()
 
 def get_transform():
+    """Standard ImageNet preprocess for 224×224 crops."""
     return transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225])
+                             [0.229, 0.224, 0.225]),
     ])
 
-def get_embedding(model, image_path, device):
-    image = Image.open(image_path).convert("RGB")
-    tensor = transform(image).unsqueeze(0).to(device)
+
+def get_fused_embedding(model, image_paths, transform, device):
+    """
+    Given a list of image file paths, load + preprocess each,
+    pass them into model(list_of_tensors) and return the
+    fused embedding (CPU tensor) or None if no valid images.
+    """
+    tensors = []
+    for p in image_paths:
+        if not os.path.exists(p):
+            continue
+        img = Image.open(p).convert("RGB")
+        tensors.append(transform(img).to(device, non_blocking=True))
+    if not tensors:
+        return None
+
     with torch.no_grad():
-        return model([tensor])[0].cpu()
+        # model should fuse internally and return a list/tuple
+        fused = model(tensors)[0]
+    return fused.cpu()
 
-def fuse_embeddings(embeddings):
-    return torch.mean(torch.stack(embeddings), dim=0)
 
-def compute_ap(ranked_ids, is_match):
-    ap, hits = 0.0, 0
-    for i, vid in enumerate(ranked_ids):
-        if is_match(vid):
+def compute_ap(ranked_files, match_fn):
+    """
+    Compute Average Precision for one query.
+    ranked_files: gallery filenames sorted by decreasing sim.
+    match_fn(fname) → bool
+    """
+    ap = 0.0
+    hits = 0
+    for i, fname in enumerate(ranked_files, start=1):
+        if match_fn(fname):
             hits += 1
-            ap += hits / (i + 1)
+            ap += hits / i
     return ap / hits if hits > 0 else 0.0
+
 
 def evaluate(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = load_model(args.model, args.checkpoint, device)
-    global transform
-    transform = get_transform()
 
-    query_labels = parse_label_xml(args.query_label)
-    gallery_labels = parse_label_xml(args.gallery_label)
-    query_filenames = load_query_filenames(args.query_list)
+    # load network
+    model = MultiViewMatchNet(backbone=args.model,
+                              embedding_dim=args.embedding_dim)
+    model.load_state_dict(torch.load(args.checkpoint,
+                                     map_location=device))
+    model.to(device).eval()
 
+    transform      = get_transform()
+    query_meta     = parse_label_xml(args.query_label)
+    gallery_meta   = parse_label_xml(args.gallery_label)
+    query_set      = load_query_list(args.query_list)
+
+    # group query images by vehicleID
     query_groups = defaultdict(list)
-    for fname, meta in query_labels.items():
-        if fname in query_filenames:
-            query_groups[meta['vehicleID']].append(fname)
+    for fname, m in query_meta.items():
+        if fname in query_set:
+            query_groups[m['vehicleID']].append(fname)
 
-    gallery_files = [fname for fname in gallery_labels if fname not in query_filenames]
-    gallery_vids = [gallery_labels[f]['vehicleID'] for f in gallery_files]
-    gallery_metas = [gallery_labels[f] for f in gallery_files]
+    # gallery excludes query images
+    gallery_files = [f for f in gallery_meta if f not in query_set]
 
-    gallery_embs = []
-    for fname in tqdm(gallery_files, desc="Extracting gallery embeddings"):
-        path = os.path.join(args.gallery_dir, fname)
-        if os.path.exists(path):
-            gallery_embs.append(get_embedding(model, path, device))
-    gallery_matrix = torch.stack(gallery_embs)
-
-    results = []
-    cmc_ranks = [1, 5, 10, 20, 50]
-    cmc_hit_counts = {k: 0 for k in cmc_ranks}
-    correct_sims, incorrect_sims, ap_list = [], [], []
-    top1 = top5 = top10 = 0
+    # metrics accumulators
+    pairwise_rows = []
+    ap_values     = []
+    cmc_cutoffs   = [1, 5, 10]
+    cmc_hits      = {k: 0 for k in cmc_cutoffs}
     total_queries = len(query_groups)
 
-    for qvid, fnames in tqdm(query_groups.items(), desc="Evaluating fused queries"):
-        embeddings = [get_embedding(model, os.path.join(args.query_dir, f), device)
-                      for f in fnames if os.path.exists(os.path.join(args.query_dir, f))]
-        if not embeddings:
-            continue
+    for qvid, qfiles in tqdm(query_groups.items(), desc="Queries"):
+        # fuse all query views inside the model
+        qpaths = [os.path.join(args.query_dir, f) for f in qfiles]
+        fused_q = get_fused_embedding(model, qpaths, transform, device)
+        if fused_q is None:
+            continue  # no valid query images
 
-        fused_query = fuse_embeddings(embeddings)
-        query_meta = query_labels[fnames[0]]
+        # compute similarity to each gallery image
+        sims = []
+        for gf in gallery_files:
+            gpath = os.path.join(args.gallery_dir, gf)
+            fused_g = get_fused_embedding(model, [gpath], transform, device)
+            if fused_g is None:
+                continue
+            sim = F.cosine_similarity(
+                fused_q.unsqueeze(0),
+                fused_g.unsqueeze(0),
+                dim=1
+            ).item()
+            sims.append((gf, gallery_meta[gf]['vehicleID'], sim))
 
-        def is_match(gid):
-            gmeta = gallery_labels.get(gallery_files[gallery_vids.index(gid)], {})
-            return (args.soft_match and is_soft_match(query_meta, gmeta)) or (not args.soft_match and gid == qvid)
+        # rank by similarity desc
+        sims.sort(key=lambda x: x[2], reverse=True)
+        ranked_files = [gf for gf, _, _ in sims]
 
-        sims = F.cosine_similarity(fused_query, gallery_matrix)
-        sim_list = [(gallery_vids[i], sims[i].item()) for i in range(len(gallery_vids))]
+        # define match function
+        if args.soft_match:
+            # color + type must match
+            qm = query_meta[qfiles[0]]
+            def match_fn(fname):
+                gm = gallery_meta[fname]
+                return (qm['colorID'] == gm['colorID'] and
+                        qm['typeID']  == gm['typeID'])
+        else:
+            def match_fn(fname):
+                return gallery_meta[fname]['vehicleID'] == qvid
 
-        ranked = sorted(sim_list, key=lambda x: x[1], reverse=True)
-        ranked_ids = [v for v, _ in ranked]
+        # CMC hits
+        for k in cmc_cutoffs:
+            if any(match_fn(f) for f in ranked_files[:k]):
+                cmc_hits[k] += 1
 
-        match_rank = next((i for i, gid in enumerate(ranked_ids) if is_match(gid)), -1)
-        if match_rank >= 0:
-            for k in cmc_ranks:
-                if match_rank < k:
-                    cmc_hit_counts[k] += 1
+        # mAP
+        ap = compute_ap(ranked_files, match_fn)
+        ap_values.append(ap)
 
-        ap = compute_ap(ranked_ids, is_match)
-        ap_list.append(ap)
+        # record each pairwise score
+        for gf, gid, sim in sims:
+            pairwise_rows.append({
+                'query_vid'    : qvid,
+                'gallery_image': gf,
+                'gallery_vid'  : gid,
+                'similarity'   : sim
+            })
 
-        topk = ranked_ids[:10]
-        top1 += is_match(topk[0])
-        top5 += any(is_match(gid) for gid in topk[:5])
-        top10 += any(is_match(gid) for gid in topk)
-
-        cos_correct = [s for v, s in ranked if is_match(v)]
-        correct_sims.append(cos_correct[0] if cos_correct else 0)
-        incorrect_sims.extend([s for v, s in ranked if not is_match(v)])
-
-        results.append({"query_vid": qvid, "AP": ap, "rank": match_rank})
-
-    metrics_path = args.output_csv.replace(".csv", "_metrics.csv")
+    # prepare output paths
     os.makedirs(os.path.dirname(args.output_csv), exist_ok=True)
-    with open(args.output_csv, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=results[0].keys())
-        writer.writeheader()
-        writer.writerows(results)
-    with open(metrics_path, "w") as f:
-        f.write("metric,value\n")
-        f.write(f"Top-1,{top1/total_queries:.4f}\n")
-        f.write(f"Top-5,{top5/total_queries:.4f}\n")
-        f.write(f"Top-10,{top10/total_queries:.4f}\n")
-        f.write(f"mAP,{sum(ap_list)/total_queries:.4f}\n")
-        f.write(f"Avg_Correct_Sim,{sum(correct_sims)/len(correct_sims):.4f}\n")
-        f.write(f"Avg_Incorrect_Sim,{sum(incorrect_sims)/len(incorrect_sims):.4f}\n")
-        for k in cmc_ranks:
-            f.write(f"CMC@{k},{cmc_hit_counts[k]/total_queries:.4f}\n")
+    pairs_csv   = args.output_csv.replace('.csv', '_pairs.csv')
+    metrics_csv = args.output_csv.replace('.csv', '_metrics.csv')
+
+    # write pairwise CSV
+    with open(pairs_csv, 'w', newline='') as f:
+        w = csv.DictWriter(f,
+            fieldnames=['query_vid','gallery_image','gallery_vid','similarity'])
+        w.writeheader()
+        w.writerows(pairwise_rows)
+
+    # write metrics CSV
+    with open(metrics_csv, 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['metric','value'])
+        w.writerow(['mAP', f"{sum(ap_values)/total_queries:.4f}"])
+        for k in cmc_cutoffs:
+            w.writerow([f"CMC@{k}", f"{cmc_hits[k]/total_queries:.4f}"])
+
+    print(f"Pairwise results saved to:   {pairs_csv}")
+    print(f"Summary metrics saved to:    {metrics_csv}")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", type=str, required=True)
-    parser.add_argument("--query_dir", type=str, required=True)
-    parser.add_argument("--query_label", type=str, required=True)
-    parser.add_argument("--gallery_dir", type=str, required=True)
-    parser.add_argument("--gallery_label", type=str, required=True)
-    parser.add_argument("--query_list", type=str, required=True)
-    parser.add_argument("--output_csv", type=str, required=True)
-    parser.add_argument("--model", type=str, default="swifttracknet")
+    parser = argparse.ArgumentParser(
+        description="Evaluate fused-query re-identification")
+    parser.add_argument("--checkpoint",    required=True,
+                        help="path to model .pt")
+    parser.add_argument("--query_dir",     required=True)
+    parser.add_argument("--query_label",   required=True,
+                        help="XML file for query set")
+    parser.add_argument("--gallery_dir",   required=True)
+    parser.add_argument("--gallery_label", required=True,
+                        help="XML file for gallery set")
+    parser.add_argument("--query_list",    required=True,
+                        help="text file listing query image names")
+    parser.add_argument("--output_csv",    required=True,
+                        help="base path for output CSVs (will append _pairs.csv and _metrics.csv)")
+    parser.add_argument("--model",         default="swifttracknet",
+                        help="backbone name for MultiViewMatchNet")
     parser.add_argument("--embedding_dim", type=int, default=128)
-    parser.add_argument("--soft_match", action="store_true")
+    parser.add_argument("--soft_match",    action="store_true",
+                        help="use color+type soft match instead of exact vehicleID")
     args = parser.parse_args()
     evaluate(args)
