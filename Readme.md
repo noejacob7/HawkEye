@@ -241,3 +241,10 @@ Correct Matches: 199
 Incorrect Matches: 1
 Avg Query Inference Time: 0.011895 sec
 Avg Gallery Inference Time: 0.063725 sec
+
+
+Nice command to have
+
+```python
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+```

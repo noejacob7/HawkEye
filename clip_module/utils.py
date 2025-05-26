@@ -47,7 +47,7 @@ def compute_cmc_map(
 
     for qi in range(num_q):
         qid = query_ids[qi]
-        sim_row = sims[qi].cpu().numpy()
+        sim_row = sims[qi].cpu().detach().numpy()
         # sort gallery by descending sim
         idxs = np.argsort(-sim_row)
         ordered_gids = [gallery_ids[i] for i in idxs]
