@@ -7,6 +7,9 @@ from PIL import Image
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 def load_model(model_name, checkpoint_path, device):
     from models.multiview_matchnet import MultiViewMatchNet
     model = MultiViewMatchNet(backbone=model_name, embedding_dim=128)

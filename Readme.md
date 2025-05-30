@@ -233,6 +233,8 @@ Incorrect Matches: 1
 Avg Query Inference Time: 0.012529 sec
 Avg Gallery Inference Time: 0.065119 sec
 
+### Swifttracknet weighted training
+
 Top-1 Accuracy: 93.50%
 Top-5 Accuracy: 98.50%
 Top-10 Accuracy: 99.50%
@@ -242,9 +244,21 @@ Incorrect Matches: 1
 Avg Query Inference Time: 0.011895 sec
 Avg Gallery Inference Time: 0.063725 sec
 
+### Mobilenet weighted training
+
+Top-1 Accuracy: 97.50%
+Top-5 Accuracy: 100.00%
+Top-10 Accuracy: 100.00%
+Total Queries: 200
+Correct Matches: 200
+Incorrect Matches: 0
+Avg Query Inference Time: 0.036471 sec
+Avg Gallery Inference Time: 0.236007 sec
+
 
 Nice command to have
 
 ```python
+import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 ```

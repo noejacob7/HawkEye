@@ -11,17 +11,17 @@ from collections import defaultdict
 import random
 
 # Add root path to sys.path
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(ROOT)
 
-from models.multiview_matchnet import MultiViewMatchNet
-from utils.label_parser import parse_veri_labels
+from LightMatchNet.models.multiview_matchnet import MultiViewMatchNet
+from LightMatchNet.utils.label_parser import parse_veri_labels
 
 # Config
-LABEL_PATH = "data/VeRi/test_label.xml"  # or train_label.xml
-IMAGE_ROOT = "data/VeRi/image_test"
-OUTPUT_CSV = "experiments/metrics/inter_id_similarity_grouped.csv"
-CHECKPOINT = "checkpoints/swifttracknet_multiview_v2_2.pt"
+LABEL_PATH = "LightMatchNet/data/VeRi/test_label.xml"  # or train_label.xml
+IMAGE_ROOT = "LightMatchNet/data/VeRi/image_test"
+OUTPUT_CSV = "LightMatchNet/experiments/metrics/inter_id_similarity_grouped.csv"
+CHECKPOINT = "LightMatchNet/checkpoints/swifttracknet_multiview_v3.pt"
 BACKBONE = "swifttracknet"
 PAIR_LIMIT = 300
 

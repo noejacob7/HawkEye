@@ -1,0 +1,11 @@
+Module,Latency (ms)
+YOLOv11-Tiny,26.02
+LightMatchNet Embedding,3.05
+Fusion (Attention),3.62
+
+UAV Count,Bandwidth (KB)
+1,0.5
+2,1.0
+4,2.0
+8,4.0
+16,8.0

@@ -16,6 +16,7 @@ from clip_module.get_clip import load_clip_model
 from clip_module.projection_head_dcca import DCCAProjectionHead as ProjectionHead
 from clip_module.T2I_VeRi.dataset import T2IVeRiTextImageDataset
 from clip_module.data.vrai_dataset import VRAITextImageDataset
+from clip_module.dataset_vrai import CSVTextImageDataset
 
 
 from LightMatchNet.models.multiview_matchnet import MultiViewMatchNet
@@ -118,13 +119,21 @@ def main():
     #     transform=clip_preprocess,
     #     tokenizer=lambda caps, context_length=77: clip.tokenize(caps, context_length=context_length, truncate=True),
     # )
-    ds = VRAITextImageDataset(
-        annotation_path="data/VRAI/train_annotation.pkl",
-        image_dir="data/VRAI/images_train",
-        transform=clip_preprocess,
-        tokenizer=lambda caps, context_length=77: clip.tokenize(caps, context_length=context_length, truncate=True),
-        split="train"
+    # ds = VRAITextImageDataset(
+    #     annotation_path="data/VRAI/train_annotation.pkl",
+    #     image_dir="data/VRAI/images_train",
+    #     transform=clip_preprocess,
+    #     tokenizer=lambda caps, context_length=77: clip.tokenize(caps, context_length=context_length, truncate=True),
+    #     split="train"
+    # )
+
+    ds = CSVTextImageDataset(
+    csv_path="clip_module/generated_vrai_text_annotations.csv",
+    image_root="data/VRAI/images_train",
+    transform=clip_preprocess,
+    tokenizer=lambda caps, context_length=77: clip.tokenize(caps, context_length=context_length, truncate=True),
     )
+
     dl = DataLoader(ds, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
     for epoch in range(start_epoch, args.epochs + 1):

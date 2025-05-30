@@ -10,21 +10,23 @@ from tqdm import tqdm
 from collections import defaultdict
 import random
 
-# Add root path
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(ROOT)
+# # Add root path
+# ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# sys.path.append(ROOT)
 
-from models.multiview_matchnet import MultiViewMatchNet
-from utils.label_parser import parse_veri_labels
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from LightMatchNet.models.multiview_matchnet import MultiViewMatchNet
+from LightMatchNet.utils.label_parser import parse_veri_labels
 
 # Config
-QUERY_LABEL_PATH = "data/VeRi/test_label.xml"
-GALLERY_LABEL_PATH = "data/VeRi/test_label.xml"
-QUERY_DIR = "data/VeRi/image_query"
-GALLERY_DIR = "data/VeRi/image_test"
-CHECKPOINT = "checkpoints/swifttracknet_multiview_v2_2.pt"
+QUERY_LABEL_PATH = "LightMatchNet/data/VeRi/test_label.xml"
+GALLERY_LABEL_PATH = "LightMatchNet/data/VeRi/test_label.xml"
+QUERY_DIR = "LightMatchNet/data/VeRi/image_query"
+GALLERY_DIR = "LightMatchNet/data/VeRi/image_test"
+CHECKPOINT = "LightMatchNet/checkpoints/swifttracknet_multiview_v3.pt"
 BACKBONE = "swifttracknet"
-OUTPUT_CSV = "experiments/metrics/view_fusion_sweep.csv"
+OUTPUT_CSV = "LightMatchNet/experiments/metrics/view_fusion_sweep_v3.csv"
 
 # Setup
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

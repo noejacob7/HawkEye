@@ -14,6 +14,9 @@ class MultiViewMatchNet(nn.Module):
         elif backbone == "swifttracknet":
             from LightMatchNet.models.swifttracknet import SwiftTrackNet
             self.encoder = SwiftTrackNet(embedding_dim=embedding_dim)
+        elif backbone == "coarsefilter":
+            from LightMatchNet.models.coarse_filter_model import CoarseFilterNet
+            self.encoder = CoarseFilterNet(embedding_dim=embedding_dim)
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 

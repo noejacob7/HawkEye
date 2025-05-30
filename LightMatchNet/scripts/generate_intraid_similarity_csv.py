@@ -10,14 +10,14 @@ from tqdm import tqdm
 from collections import defaultdict
 
 # Add root path to sys.path
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(ROOT)
 
 # Paths (edit these to match your directory structure)
-COARSE_INDEX_PATH = "data/mvp/coarse_index_list.txt"
-COARSE_MASK_PATH = "data/mvp/coarse_annotation"
-IMAGE_ROOT = "data/VeRi/image_test"
-OUTPUT_CSV = "experiments/metrics/intra_id_similarity.csv"
+COARSE_INDEX_PATH = "LightMatchNet/data/mvp/coarse_index_list.txt"
+COARSE_MASK_PATH = "LightMatchNet/data/mvp/coarse_annotation"
+IMAGE_ROOT = "LightMatchNet/data/VeRi/image_test"
+OUTPUT_CSV = "LightMatchNet/experiments/metrics/intra_id_similarity_v3.csv"
 
 # Define simple view mapping from coarse mask part IDs
 COARSE_VIEW_MAP = {
@@ -32,9 +32,9 @@ COARSE_VIEW_MAP = {
 }
 
 # Load model
-from models.multiview_matchnet import MultiViewMatchNet
+from LightMatchNet.models.multiview_matchnet import MultiViewMatchNet
 model = MultiViewMatchNet(backbone="swifttracknet", embedding_dim=128)
-model.load_state_dict(torch.load("checkpoints/swifttracknet_multiview_v2_2.pt"))
+model.load_state_dict(torch.load("LightMatchNet/checkpoints/swifttracknet_multiview_v3.pt"))
 model.eval()
 
 # Image transform
